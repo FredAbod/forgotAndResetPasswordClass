@@ -1,7 +1,10 @@
 const User = require("../models/user.models");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { v4: uuidv4 } = require('uuid');
+const fs = require("fs");
+const path = require("path");
+const { v4: uuidv4 } = require("uuid");
+const { sendEmail } = require("../config/email");
 
 //User SignUp
 exports.signup = async (req, res) => {
@@ -23,8 +26,19 @@ exports.signup = async (req, res) => {
       lastName,
       email,
       password: hashPassword,
-      otp
+      otp,
     });
+
+    const htmlTemplate = fs.readFileSync(
+      path.join(__dirname, "../views/signup.html"),
+      "utf-8"
+    );
+    const emailTemplate = htmlTemplate
+      .replace("{{firstName}}", firstName)
+      .replace("{{otp}}", otp);
+
+      await sendEmail(emailTemplate, "Your Otp Has Been Sent", email);
+      
     return res
       .status(201)
       .json({ data: newUser, msg: "User created successfully" });
@@ -32,7 +46,7 @@ exports.signup = async (req, res) => {
     console.error(error.message);
     return res.status(500).json({ msg: "Server Error" });
   }
-};
+};  
 
 //User Login
 exports.login = async (req, res) => {
@@ -53,11 +67,27 @@ exports.login = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ msg: "Invalid credentials" });
     }
+    const payload = {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      id: user._id,
+    };
     // Token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ payload }, process.env.JWT_SECRET, {
       expiresIn: "1d",
     });
-    return res.status(200).json({ token, msg: "User logged in successfully" });
+    const htmlTemplate = fs.readFileSync(
+      path.join(__dirname, "../views/login-success.html"),
+      "utf-8"
+    );
+    const emailTemplate = htmlTemplate
+      .replace("{{firstName}}", user.firstName);
+
+      await sendEmail(emailTemplate, "You Just Logged In", email);
+    return res
+      .status(200)
+      .json({ msg: "User logged in successfully", payload, token });
   } catch (error) {
     console.error(error.message);
     return res.status(500).json({ msg: "Server Error" });
@@ -67,7 +97,7 @@ exports.login = async (req, res) => {
 // Verify Otp
 
 exports.verifyOtp = async (req, res) => {
-  const {otp} = req.body;
+  const { otp } = req.body;
   try {
     if (!otp) {
       return res.status(400).json({ msg: "Please enter OTP" });
@@ -84,9 +114,8 @@ exports.verifyOtp = async (req, res) => {
   } catch (error) {
     console.error(error.message);
     return res.status(500).json({ msg: "Server Error" });
-    
   }
-}
+};
 
 // Forgot Password
 exports.forgotPassword = async (req, res) => {
@@ -113,27 +142,30 @@ exports.forgotPassword = async (req, res) => {
 // Reset Password
 
 exports.resetPassword = async (req, res) => {
-  const {otp} = req.query;
+  const { otp } = req.query;
   const { newPassword, confirmPassword } = req.body;
   try {
     if (!newPassword || !confirmPassword) {
-      return res.status(400).message('Please Fill All Fields');
+      return res.status(400).message("Please Fill All Fields");
     }
-    const user = await User.findOne({otp})
+    const user = await User.findOne({ otp });
     if (!user) {
-      return res.status(404).json({ msg: 'Invalid OTP' });
+      return res.status(404).json({ msg: "Invalid OTP" });
     }
     if (newPassword !== confirmPassword) {
-      return res.status(400).json({ msg: 'Passwords do not match' });
+      return res.status(400).json({ msg: "Passwords do not match" });
     }
+    console.log(user.password);
 
     const hashPassword = await bcrypt.hash(newPassword, 10);
+
     user.password = hashPassword;
     user.otp = null;
+    console.log(hashPassword);
     await user.save();
-    return res.status(200).json({ msg: 'Password Reset Successfully' });
+    return res.status(200).json({ msg: "Password Reset Successfully" });
   } catch (error) {
     console.error(error.message);
     return res.status(500).json({ msg: "Server Error" });
   }
-}
+};
