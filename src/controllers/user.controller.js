@@ -75,7 +75,7 @@ exports.login = async (req, res) => {
     };
     // Token
     const token = jwt.sign({ payload }, process.env.JWT_SECRET, {
-      expiresIn: "1d",
+      expiresIn: process.env.JWT_EXPIRES_IN,
     });
     const htmlTemplate = fs.readFileSync(
       path.join(__dirname, "../views/login-success.html"),
