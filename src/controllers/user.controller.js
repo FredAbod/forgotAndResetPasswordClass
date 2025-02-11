@@ -13,10 +13,10 @@ exports.signup = async (req, res) => {
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({ msg: "Please enter all fields" });
     }
-    const user = await User.find({ email });
-    if (user) {
-      return res.status(400).json({ msg: "User already exists" });
-    }
+    // const user = await User.findOne({ email });
+    // if (user) {
+    //   return res.status(400).json({ msg: "User already exists" });
+    // }
 
     const hashPassword = await bcrypt.hash(password, 10);
     const otp = uuidv4().substring(0, 6).toUpperCase(); // Generate 6-character OTP
